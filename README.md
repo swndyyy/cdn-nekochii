@@ -1,5 +1,5 @@
 ---
-title: uploadFile
+title: Uploader
 emoji: 📁
 colorFrom: blue
 colorTo: yellow
