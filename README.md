@@ -1,22 +1,22 @@
-# 📁 NEKOCHII UPLOADER
+# NEKOSEKAI UPLOADER
 
-## Deskripsi
+## Description
 
-This uploader allows you to upload files to **NEKOCHII** by requesting the backend. Built using `axios`, `form-data`, and several related modules, the upload process
+A file uploader utility for **NEKOSEKAI** that communicates with a backend service. Built using Express.js with support for file handling through `axios`, `form-data`, and related modules.
 
-**SDK**: Docker 
-**Pinned**: No 
-**Theme Color**: Blue to Yellow
+**SDK**: Docker  
+**Pinned**: No  
+**Theme Color**: Blue to Yellow  
 
-Check out the configuration reference at [Hugging Face Docs](https://huggingface.co/docs/hub/spaces-config-reference).
+Configuration reference available at [Hugging Face Docs](https://huggingface.co/docs/hub/spaces-config-reference).
 
 ---
 
-## How to use
+## Usage
 
-To upload files using **NEKOCHII UPLOADER**, you can use the `uploadNeko` function. Here is an example of its implementation:
+To upload files using **NEKOSEKAI UPLOADER**, call the `uploadNeko` function. Below is an implementation example:
 
-### 💻 **Implementation of Request to Backend**
+### Backend Request Implementation
 
 ```javascript
 const axios = require('axios');
@@ -25,44 +25,44 @@ const fs = require('fs');
 const FileType = require('file-type');
 
 /**
- * Upload files to https://nekochii-up.hf.space/upload
- * @param {Buffer|string} input - Buffer or file path
- * @returns {Promise<Object>} - The result of the response from the server
+ * Uploads files to https://nekosekai-upx.hf.space/upload
+ * @param {Buffer|string} input - Either a Buffer or file path
+ * @returns {Promise<Object>} - Server response data
  */
 async function uploadNeko(buffer) {
   try {
     let fileBuffer;
 
-    // Check whether the input is a Buffer or a file path
+    // Validate input type (Buffer or file path)
     if (Buffer.isBuffer(buffer)) {
       fileBuffer = buffer;
     } else if (typeof buffer === 'string' && fs.existsSync(buffer)) {
       fileBuffer = fs.readFileSync(buffer);
     } else {
-      throw new Error('File not found or buffer invalid.');
+      throw new Error('Invalid input: File not found or buffer invalid.');
     }
 
-    // Determine the file type
+    // Detect file type
     const type = await FileType.fromBuffer(fileBuffer);
     const form = new FormData();
 
-    // Add file to form
+    // Append file to form data
     form.append('file', fileBuffer, {
-      filename: 'upload.' + (type?.ext || 'bin'),
+      filename: `upload.${type?.ext || 'bin'}`,
       contentType: type?.mime || 'application/octet-stream'
     });
 
-    // Send POST request to upload file
+    // Submit POST request
     const { data } = await axios.post('https://nekochii-up.hf.space/upload', form, {
       headers: form.getHeaders(),
       maxBodyLength: Infinity,
     });
 
-    // Check if upload was successful
-    if (!data?.success) throw new Error(data.message || 'Upload fail.');
+    // Verify upload success
+    if (!data?.success) throw new Error(data.message || 'Upload failed');
 
     return data;
   } catch (err) {
-    throw new Error('Gagal upload: ' + err.message);
+    throw new Error(`Upload error: ${err.message}`);
   }
 }

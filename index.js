@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const tmpDir = os.tmpdir()
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 hari
-const FILE_LIMIT = 1024 * 1024 * 1024 // 200 MB
+const FILE_LIMIT = 2 * 1024 * 1024 * 1024 // 2 GB
 
 // Setup multer storage
 const storage = multer.diskStorage({
@@ -24,13 +24,16 @@ const storage = multer.diskStorage({
   }
 })
 
-const upload = multer({ 
-  storage
+// Setup multer without size limit (handled by express.json)
+const upload = multer({
+  storage,
+  limits: { fileSize: FILE_LIMIT }
 })
 
+// Middleware setup
 app.set('json spaces', 2)
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(express.json({ limit: '2gb' }))
+app.use(express.urlencoded({ extended: true, limit: '2gb' }))
 app.use(favicon(path.join(__dirname, 'favicon.ico')))
 app.use(morgan('dev'))
 app.use('/file', express.static(tmpDir))
@@ -59,9 +62,9 @@ app.use((req, res, next) => {
 // POST /upload
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'No file uploaded. Please use form-data with field "file".' 
+    return res.status(400).json({
+      success: false,
+      message: 'No file uploaded. Please use form-data with field "file".'
     })
   }
 
