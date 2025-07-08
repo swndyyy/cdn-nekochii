@@ -7,12 +7,14 @@ import multer from 'multer'
 import favicon from 'serve-favicon'
 import { fileURLToPath } from 'url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 const app = express()
-const tmpDir = path.join(os.tmpdir(), 'uploads')
+const tmpDir = os.tmpdir()
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 hari
+const FILE_LIMIT = 1024 * 1024 * 1024 // 200 MB
 
-if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true })
-
+// Setup multer storage
 const storage = multer.diskStorage({
   destination: tmpDir,
   filename: (req, file, cb) => {
@@ -23,53 +25,72 @@ const storage = multer.diskStorage({
 })
 
 const upload = multer({ 
-  storage,
-  limits: { fileSize: 8 * 1024 * 1024 }
+  storage
 })
 
 app.set('json spaces', 2)
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-app.use(morgan('dev'))
 app.use(favicon(path.join(__dirname, 'favicon.ico')))
+app.use(morgan('dev'))
 app.use('/file', express.static(tmpDir))
 
+// Middleware: Delete files older than 30 days
+app.use((req, res, next) => {
+  fs.readdir(tmpDir, (err, files) => {
+    if (err) return next()
+    files.forEach(file => {
+      const filePath = path.join(tmpDir, file)
+      fs.stat(filePath, (err, stats) => {
+        if (!err && stats.isFile()) {
+          const age = Date.now() - stats.mtimeMs
+          if (age > MAX_AGE_MS) {
+            fs.unlink(filePath, () => {
+              console.log(`[CLEAN] Deleted expired file: ${file}`)
+            })
+          }
+        }
+      })
+    })
+  })
+  next()
+})
 
+// POST /upload
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ 
       success: false, 
-      message: 'No file uploaded. Please use form-data with "file" field' 
+      message: 'No file uploaded. Please use form-data with field "file".' 
     })
   }
 
-  const fileUrl = `${req.protocol}://${req.get('host')}/file/${req.file.filename}`
-
+  const fileUrl = `https://${req.hostname}/file/${req.file.filename}`
   res.json({
     success: true,
-    message: 'File uploaded successfully',
+    message: 'File uploaded successfully.',
     filename: req.file.filename,
     originalname: req.file.originalname,
     size: req.file.size,
     mimetype: req.file.mimetype,
-    url: fileUrl
+    url: fileUrl,
+    expires: 'File will expire in 30 days (auto-deleted).'
   })
 })
 
+// GET /
 app.get('/', (req, res) => {
   res.json({
-    message: 'Nekochii Uploader API',
-    endpoint: {
+    message: 'Nekosekai Uploader API',
+    usage: {
+      endpoint: '/upload',
       method: 'POST',
-      path: '/upload',
-      description: 'Upload any file using form-data with "file" field',
-      maxUploadSize: '8MB',
-      expiry: 'None (manual deletion only)'
+      type: 'multipart/form-data',
+      field: 'file',
+      note: 'File max size: 200MB, auto-deletes after 30 days'
     }
   })
 })
 
 const PORT = process.env.PORT || 7860
-app.listen(PORT, () => {
-  console.log(`Uploader running at http://localhost:${PORT}`)
-})
+app.listen(PORT, () => console.log(`🚀 File uploader running at port ${PORT}`))
